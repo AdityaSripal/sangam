@@ -1,0 +1,9 @@
+# Revenue
+
+Most open source, decentralized tech projects struggle to find a source of recurring revenue. Cryptocurrency projects in particular often earn the bulk of their revenue in an ICO and then perhaps a little more in the way of fees and inflation once the network is live.
+
+Since Sangam has yet to finalize on a token economics model, it remains to be seen whether there exists a revenue stream for the developers of Sangam from blockchain fees and token supply inflation. However, what is certain is that Sangam will not do an ICO since they more often than not reward companies way too much, way too early; disincentivize continued development of the platform; and entrench early investors as plutocrats in the system.
+
+Since the Sangam codebase is a digital creation; the codebase itself will be uploaded onto the Sangam platform and will be capable of receiving donations. This aligns the incentives of the platform developers with the platform creators and explicitly removes the distance between them, since the developers of Sangam are also members of the Sangam community on equal standing with every other creator. Since the developers of Sangam are also reliant on Sangam donations for revenue, the developers of Sangam are incentivized to make donations on Sangam as viable a business model as possible. Pure donations haven't worked in any other internet platform before, so Sangam developers must do whatever they can to create the platform incentives AND the platform culture necessary to encourage donations from content consumers.
+
+By making Sangam itself a creation on the Sangam platform, developers will have to find a way to use their own product to create a sustainable revenue stream; and in doing so they will pave a path for other creators to support themselves on Sangam as well.
