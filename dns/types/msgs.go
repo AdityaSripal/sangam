@@ -7,16 +7,16 @@ import (
 // MsgPreCommitEntry is the initial registration of a DNS Entry using a commit
 // reveal scheme.
 type MsgPreCommitEntry struct {
-	// Key is the lookup key for the DNS Entry.
-	Key []byte `json:"key" yaml:"key"`
+	// Path is the lookup key for the DNS Entry.
+	Path Path `json:"path" yaml:"path"`
 
 	// Hash is the hash of a random nonce and the encoded entry.
 	Hash []byte `json:"hash" yaml:"hash"`
 }
 
-// GetKey returns the key used for the DNS entry.
-func (msg MsgPreCommitEntry) GetKey() []byte {
-	return msg.Key
+// GetPath returns the path used to map the DNS entry.
+func (msg MsgPreCommitEntry) GetPath() []byte {
+	return msg.Path
 }
 
 // GetHash returns the hash of the nonce and encoded entry.
@@ -24,17 +24,13 @@ func (msg MsgPreCommitEntry) GetHash() []byte {
 	return msg.Hash
 }
 
-// ValidateBasic ensures that neither the key or hash is empty.
+// ValidateBasic ensures that hash is not empty and the path is valid.
 func (msg MsgPreCommitEntry) ValidateBasic() error {
-	if len(msg.Key) == 0 {
-		return sdkerrors.Wrap("key cannot be empty")
-	}
-
 	if len(msg.Hash) == 0 {
 		return sdkerros.Wrap("hash cannot be empty")
 	}
 
-	return nil
+	return msg.Path.ValidateBasic()
 }
 
 // MsgCommitEntry is the final registration of a DNS Entry with the
@@ -43,8 +39,8 @@ type MsgCommitEntry struct {
 	// Nonce is the random nonce used in the pre-commit message.
 	Nonce uint64 `json:"nonce" yaml:"nonce"`
 
-	// Key is the lookup key for the DNS Entry.
-	Key []byte `json:"key" yaml:"key"`
+	// Path is the lookup key for the DNS Entry.
+	Path []byte `json:"path" yaml:"path"`
 
 	// Entry is the DNS entry being registered.
 	Entry Entry `json:"entry" yaml:"entry"`
@@ -55,9 +51,9 @@ func (msg MsgCommitEntry) GetNonce() uint64 {
 	return msg.Nonce
 }
 
-// GetKey returns the key used for the DNS entry.
-func (msg MsgCommitEntry) GetKey() []byte {
-	return msg.Key
+// GetPath returns the key used for the DNS entry.
+func (msg MsgCommitEntry) GetPath() []byte {
+	return msg.Path
 }
 
 // GetEntry returns the entry being registered.
@@ -68,8 +64,8 @@ func (msg MsgCommitEntry) GetEntry() Entry {
 // ValidateBasic ensures that the key is not empty and the entry
 // is well formed.
 func (msg MsgCommitEntry) ValidateBasic() error {
-	if len(msg.Key) == 0 {
-		return sdkerrors.Wrap("key cannot be 0")
+	if err := msg.Path.ValidateBasic(); err != nil {
+		return err
 	}
 
 	return msg.Entry.ValidateBasic()

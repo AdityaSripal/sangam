@@ -6,17 +6,9 @@ type Entry interface {
 	GetContent() []byte
 }
 
-// MsgPreCommitEntry defines the msg interface used to send a pre-commit of a
-// registration in the DNS.
-type MsgPreCommitEntry interface {
-	GetKey() []byte
-	GetHash() []byte
-}
-
-// MsgCommitEntry defines the msg interface used to send a commit of a registration
-// in the DNS.
-type MsgCommitEntry interface {
-	GetNonce() uint64
-	GetKey() []byte
-	GetEntry() Entry
+// Path is the lookup key used in the DNS.
+type Path interface {
+	GetPrefix() string
+	GetContentName() string
+	GetBytes() []byte
 }
