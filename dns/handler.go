@@ -1,12 +1,25 @@
 package dns
 
 import (
-	"github.com/adityasripal/sangam/dns/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-// HandleMsgPreCommitEntry defines the sdk.Handler for MsgPreCommitEntry.
-func HandleMsgPreCommitEntry(ctx sdk.Context, k Keeper, msg types.MsgPreCommitEntry) (*sdk.Result, error) {
+// NewHandler returns sdk.Handler for DNS module messages
+func NewHandler(k Keeper) sdk.Handler {
+	return func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
+		switch msg := msg.(type) {
+		case MsgPreCommitEntry:
+			return handleMsgPreCommitEntry(ctx, k, msg)
+		case MsgCommitEntry:
+			return handleMsgCommitEntry(ctx, k, msg)
+		default:
+			return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "unrecognized ICS-20 transfer message type: %T", msg)
+		}
+	}
+}
+
+// handleMsgPreCommitEntry defines the sdk.Handler for MsgPreCommitEntry.
+func handleMsgPreCommitEntry(ctx sdk.Context, k Keeper, msg MsgPreCommitEntry) (*sdk.Result, error) {
 	err := k.StorePreCommit(ctx, msg.GetPath(), msg.GetHash())
 	if err != nil {
 		return nil, err
@@ -17,8 +30,8 @@ func HandleMsgPreCommitEntry(ctx sdk.Context, k Keeper, msg types.MsgPreCommitEn
 	}, nil
 }
 
-// HandleMsgCommitEntry defines the sdk.Handler for MsgCommitEntry.
-func HandleMsgCommitEntry(ctx sdk.Context, k Keeper, msg types.MsgCommitEntry) (*sdk.Result, error) {
+// handleMsgCommitEntry defines the sdk.Handler for MsgCommitEntry.
+func handleMsgCommitEntry(ctx sdk.Context, k Keeper, msg MsgCommitEntry) (*sdk.Result, error) {
 	preCommitHash, found := k.GetPreCommit(ctx, msg.GetPath())
 	if !found {
 		return nil, sdkerrors.Wrap(types.ErrPreCommitNotFound)
