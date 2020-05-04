@@ -1,8 +1,12 @@
 package exported
 
+import (
+	sdk "github.com/cosmos/cosmos-sdk/types"
+)
+
 // Entry is the entry used in the DNS.
 type Entry interface {
-	GetOwners() [][]byte
+	GetOwners() []sdk.AccAddress
 	GetContent() []byte
 }
 
