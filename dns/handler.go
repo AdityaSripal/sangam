@@ -20,7 +20,7 @@ func NewHandler(k Keeper) sdk.Handler {
 
 // handleMsgPreCommitEntry defines the sdk.Handler for MsgPreCommitEntry.
 func handleMsgPreCommitEntry(ctx sdk.Context, k Keeper, msg MsgPreCommitEntry) (*sdk.Result, error) {
-	err := k.StorePreCommit(ctx, msg.GetPath(), msg.GetHash())
+	err := k.SetPreCommit(ctx, msg.GetPath(), msg.GetHash())
 	if err != nil {
 		return nil, err
 	}
@@ -40,8 +40,8 @@ func handleMsgCommitEntry(ctx sdk.Context, k Keeper, msg MsgCommitEntry) (*sdk.R
 	hash := sha256.New()
 	hash.Write(sdk.Uint64ToBigEndian(msg.GetNonce()))
 	hash.Write(msg.GetEntry.GetBytes())
-	if preCommitHash != hash.Sum(nil) {
-		return nil, sdkerrors.Wrap(types.ErrHashDoesNotMatch)
+	if bytes.Equal(preCommitHash, hash.Sum(nil)) {
+		return nil, sdkerrors.Wrap(ErrHashDoesNotMatch)
 	}
 
 	err = k.SetEntry(ctx, msg.GetPath, msg.GetEntry())
