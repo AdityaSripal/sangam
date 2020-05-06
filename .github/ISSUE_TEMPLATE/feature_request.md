@@ -5,7 +5,7 @@ about: Create a proposal to request a feature or protocol upgrade
 ---
 
 <!-- If you are asking a question rather than requesting a feature, try asking on our community chat!
-- TODO: insert community chat link
+- Discord: https://discord.gg/CnsnpD
 -->
 
 ## Summary
