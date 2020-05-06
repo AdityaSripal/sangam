@@ -1,6 +1,10 @@
 package dns
 
 import (
+	"bytes"
+	"crypto/sha256"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
@@ -20,10 +24,12 @@ func NewHandler(k Keeper) sdk.Handler {
 
 // handleMsgPreCommitEntry defines the sdk.Handler for MsgPreCommitEntry.
 func handleMsgPreCommitEntry(ctx sdk.Context, k Keeper, msg MsgPreCommitEntry) (*sdk.Result, error) {
-	err := k.SetPreCommit(ctx, msg.GetPath(), msg.GetHash())
-	if err != nil {
-		return nil, err
+	entry := Entry{
+		Owners:      msg.GetOwners(),
+		ContentHash: msg.GetHash(),
+		Sequence:    PreCommitSequence, // 0
 	}
+	k.SetEntry(ctx, msg.GetDomain(), entry)
 
 	return &sdk.Result{
 		Events: ctx.EventManager().Events().ToABCIEvents(),
@@ -32,22 +38,18 @@ func handleMsgPreCommitEntry(ctx sdk.Context, k Keeper, msg MsgPreCommitEntry) (
 
 // handleMsgCommitEntry defines the sdk.Handler for MsgCommitEntry.
 func handleMsgCommitEntry(ctx sdk.Context, k Keeper, msg MsgCommitEntry) (*sdk.Result, error) {
-	preCommitHash, found := k.GetPreCommit(ctx, msg.GetPath())
+	preCommitEntry, found := k.GetEntry(ctx, msg.GetDomain())
 	if !found {
-		return nil, sdkerrors.Wrap(types.ErrPreCommitNotFound)
+		return nil, sdkerrors.Wrapf(ErrEntryNotFound, "pre-commit entry not found for domain %s", msg.GetDomain())
 	}
 
-	hash := sha256.New()
-	hash.Write(sdk.Uint64ToBigEndian(msg.GetNonce()))
-	hash.Write(msg.GetEntry.GetBytes())
-	if bytes.Equal(preCommitHash, hash.Sum(nil)) {
-		return nil, sdkerrors.Wrap(ErrHashDoesNotMatch)
+	hasher := sha256.New()
+	value := append(sdk.Uint64ToBigEndian(msg.GetNonce()), msg.GetEntry().GetBytes()...)
+	if bytes.Equal(preCommitEntry.GetContentHash(), hasher.Sum(value)) {
+		return nil, sdkerrors.Wrapf(ErrHashDoesNotMatch, "pre-commit entry hash %v does not match hash for entry %v under the domain %s", preCommitEntry.GetContentHash(), msg.GetEntry(), msg.GetDomain())
 	}
 
-	err = k.SetEntry(ctx, msg.GetPath, msg.GetEntry())
-	if err != nil {
-		return nil, err
-	}
+	k.SetEntry(ctx, msg.GetDomain(), msg.GetEntry())
 
 	return &sdk.Result{
 		Events: ctx.EventManager().Events().ToABCIEvents(),

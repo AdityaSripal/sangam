@@ -8,10 +8,11 @@ import (
 type Entry interface {
 	GetOwners() []sdk.AccAddress
 	GetContent() []byte
+	GetSequence() uint64
 }
 
-// Path is the lookup key used in the DNS.
-type Path interface {
+// Domain is the lookup key used in the DNS.
+type Domain interface {
 	GetPrefix() string
 	GetContentName() string
 	GetBytes() []byte

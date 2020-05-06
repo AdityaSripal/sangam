@@ -1,7 +1,8 @@
 package keeper
 
 import (
-	"github.com/adityasripal/sangam/dns/types"
+	"github.com/AdityaSripal/sangam/dns/types"
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -11,19 +12,21 @@ type Keeper struct {
 	cdc      *codec.Codec
 }
 
-// SetPreCommit stores pre-commit information.
-func (k Keeper) SetPreCommit(ctx sdk.Context, path types.Path, preCommitHash []byte) error {
+// SetEntry stores an entry at the given domain.
+func (k Keeper) SetEntry(ctx sdk.Context, domain types.Domain, entry types.Entry) {
 	store := ctx.KVStore(k.storeKey)
-	store.Set(path.GetBytes(), preCommitHash)
+	bz := k.cdc.MustMarshalBinaryBare(&entry)
+	store.Set(domain.GetBytes(), bz)
 }
 
-// GetPreCommit gets the pre-commit with the given path.
-func (k Keeper) GetPreCommit(ctx sdk.Context, path types.Path) (path, bool) {
+// GetEntry gets the entry with the given domain.
+func (k Keeper) GetEntry(ctx sdk.Context, domain types.Domain) (entry types.Entry, _ bool) {
 	store := ctx.KVStore(k.storeKey)
-	bz := store.Get(path.GetBytes())
+	bz := store.Get(domain.GetBytes())
 	if bz == nil {
-		return nil, false
+		return entry, false
 	}
 
-	return bz, true
+	k.cdc.MustUnmarshalBinaryBare(bz, &entry)
+	return entry, true
 }
