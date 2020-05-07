@@ -118,31 +118,31 @@ of the prefix. It will also deduct the registration fee required to register the
 We will use byte prefixes to separate storage of pre-commits, entries, and reverse entry mappings.
 They will be assinged as follows:
 
+```
 byte(0) - pre-commits
-
 byte(1) - regular entries
-
 byte(2) - reverse mapping entries
+```
 
-A domain is {prefix}/{contentName}
+A **domain** is `{prefix}/{contentName}`
 
-A pre-commit mapping looks as follows:
+A **pre-commit** mapping looks as follows:
 
 `byte(0){domain} -> PreCommit{Owners: []Owner, Hash}`
 
-A prefix mapping looks as follows:
+A **prefix** mapping looks as follows:
 
 `byte(1){prefix} -> PrefixEntry{Owners: []sdk.AccAddress}`
 
-A entry mapping looks as follows:
+An **entry** mapping looks as follows:
 
 `byte(1){domain}/{sequence} -> Entry{Owners, ContentHash}`
 
-A reverse entry mapping looks as follows:
+A **reverse entry** mapping looks as follows:
 
 `byte(2){contentHash} -> Entry{Owners, Domain, LatestSequence}`
 
-The latest entry can be stored at:
+The **latest entry** can be stored at:
 
 `byte(1){domain}/0`
 
