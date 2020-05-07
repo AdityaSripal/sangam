@@ -65,6 +65,19 @@ func (pe PrefixEntry) GetContentHash() []byte {
     return nil
 }
 
+// TODO: naming, InformationEntry? LatestEntry? 
+type ReverseEntry struct {
+    Owners []EntryOwner
+    Domain Domain
+    LatestSequence uint64
+}
+
+// precommit.go
+type PreCommit struct {
+    Owners []EntryOwners
+    Hash []byte   
+}
+
 // domain.go
 type Domain struct {
     GetPrefix() string
@@ -140,7 +153,7 @@ An **entry** mapping looks as follows:
 
 A **reverse entry** mapping looks as follows:
 
-`byte(2){contentHash} -> Entry{Owners, Domain, LatestSequence}`
+`byte(2){contentHash} -> ReverseEntry{Owners, Domain, LatestSequence}`
 
 The **latest entry** can be stored at:
 
