@@ -2,7 +2,7 @@
 
 Sangam requires a decentralized DNS secured via a blockchain to function. This 
 feature can be implemented as a module so other applications can make use of it
-and support it's maintenance. The DNS will be fairly simple, mapping some key to
+and support its maintenance. The DNS will be fairly simple, mapping some key to
 some encoded value. The DNS will support payments for registration and updates
 as well as security checks to prevent malicious behavior.  
 
@@ -20,56 +20,100 @@ We will implement a DNS module supporting the following functionality:
 ## Types
 
 First, we define the `Entry` interface type. An `Entry` should always have at
-least one owner and a non-empty byte array for content. The key for the DNS mapping
-will simply be a byte array. 
+least one owner and a non-empty byte slice representing the hash of the content. 
+The key for the DNS mapping will simply be a `domain/{sequence}`. 
 
 ```go
+// exported.go
 type Entry interface {
-    Owners()  [][]byte // TODO: how general should the owner addresses be?
-    Content() []byte
+    GetOwners()  []sdk.AccAddress // sdk reference the cosmos-sdk
+    GetContentHash() []byte
+}
+
+// prefix.go
+type PrefixEntry struct {
+    Owners []sdk.AccAddress
+}
+
+func (pe PrefixEntry) GetOwners() []sdk.AccAddress {
+    return pe.PrefixEntry
+}
+
+func (pe PrefixEntry) GetContentHash() []byte {
+    return nil
+}
+
+// domain.go
+type Domain struct {
+    GetPrefix() string
+    GetContentName() string
+    GetBytes() []byte // []byte(prefix + content name)
+}
+
+// EntryOwner is owner over a specific entry. An address may own many entries.
+type EntryOwner {
+    Address sdk.AccAddress // owner address
+    PrefixOwnershipIndex uint64 // index within the set of prefix owners
 }
 ```
 
 ## Msgs
 
-We will define two Msg types, `MsgPreCommitEntry` and `MsgCommitEntry`. A pre-commit
-entry will submit a key and a hash. The hash is a hash of the encoded entry with a 
-random nonce. The commit entry message will verify that the hash registered at
-key is equal to the hash of the encoded entry.
+We will define three Msg types, `MsgRegisterPrefix`, `MsgPreCommitEntry` and `MsgCommitEntry`.
+Updates to entries will use `MsgPreCommitEntry` and `MsgCommitEntry`
 
 ```go
-// Hash is the hash of a random nonce and the encoded entry
-type MsgPreCommitEntry struct {
-    Key  []byte
-    Hash []byte
+// Register a prefix with a set of owners. This message will fails for already registered prefixes.
+type MsgRegisterPrefix struct {
+    Prefix string
+    Owners []sdk.AccAddress
 }
 
-// Key must be equal to the Key used in the pre-commit message
+// A pre-commit entry will submit a domain, a hash, and a set of owners.
+// Hash = hash(domain + encoded_entry + random_nonce)
+type MsgPreCommitEntry struct {
+    Domain Domain
+    Hash []byte
+    Owners EntryOwners // first address must be signer of the message
+}
+
+// a commit will be accepted if the the pre-commit hash == hash(domain + encoded_entry + nonce)
+// if successful, the pre-commit is removed and the sequence number for the entry is incremented.
+// Initial commits have a sequence value of 0
 type MsgCommitEntry struct {
     Nonce uint64
-    Key   []byte
-    Entry Entry
-    
+    Domain Domain
+    Entry exported.Entry
+    Signer EntryOwner
 }
 ```
 
-Both ante handlers for pre-commit and commit messages will verify that if the
-key is a prefixed domain then the sender must be the owner of that prefix. It
-will also check that the amount spent in the transaction is equal to the amount
-required to register the entry.
+Both ante handlers for pre-commit and commit messages will verify that the sender must be a owner
+of the prefix. It will also deduct the registration fee required to register the entry.
 
-We will also need to define a message to handle update functionality. The update
-message does not need to use a commit-reveal scheme since the owners were defined 
-in the original registration. Future versions should support updating of ownership
-based on a preset percentage of signatures provided with the message. For now
-it will remain impossible to update the owners of an entry. Updates can only be made
-to the key and the content in an entry.
+## Keeper
 
-```go
-type MsgUpdateEntry struct {
-    Key []byte
-    Entry Entry
-}
-```
+We will use byte prefixes to separate storage of pre-commits, entries, and reverse entry mappings.
+They will be assinged as follows:
 
+byte(0) - pre-commits
+byte(1) - regular entries
+byte(2) - reverse mapping entries
 
+A domain is {prefix}/{contentName}
+
+A pre-commit mapping looks as follows:
+byte(0){domain} -> PreCommit{Owners: []Owner, Hash}
+
+A prefix mapping looks as follows:
+byte(1){prefix} -> PrefixEntry{Owners: []sdk.AccAddress}
+
+A entry mapping looks as follows:
+byte(1){domain}/{sequence} -> Entry{Owners, ContentHash}
+
+A reverse entry mapping looks as follows:
+byte(2){contentHash} -> Entry{Owners, Domain, LatestSequence}
+
+## Future 
+
+Add governance to update owners of prefixes
