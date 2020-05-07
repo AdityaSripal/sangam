@@ -30,6 +30,28 @@ type Entry interface {
     GetContentHash() []byte
 }
 
+// entry.go
+type Entry struct {
+	// Owners represent the addresses which have authority over this entry.
+	Owners []sdk.AccAddress `json:"owners" yaml:"owners"`
+
+	// ContentHash represents the hash of the entry's data.
+	ContentHash []byte `json:"content_hash" yaml:"content_hash"`
+
+	// Sequence
+	Sequence uint64 `json:"sequence" yaml:"sequence"`
+}
+
+// GetOwners returns the owners of the entry.
+func (e Entry) GetOwners() []sdk.AccAddress {
+	return e.Owners
+}
+
+// GetContentHash returns the hash of the content.
+func (e Entry) GetContentHash() []byte {
+	return e.ContentHash
+}
+
 // prefix.go
 type PrefixEntry struct {
     Owners []sdk.AccAddress
@@ -97,22 +119,32 @@ We will use byte prefixes to separate storage of pre-commits, entries, and rever
 They will be assinged as follows:
 
 byte(0) - pre-commits
+
 byte(1) - regular entries
+
 byte(2) - reverse mapping entries
 
 A domain is {prefix}/{contentName}
 
 A pre-commit mapping looks as follows:
-byte(0){domain} -> PreCommit{Owners: []Owner, Hash}
+
+`byte(0){domain} -> PreCommit{Owners: []Owner, Hash}`
 
 A prefix mapping looks as follows:
-byte(1){prefix} -> PrefixEntry{Owners: []sdk.AccAddress}
+
+`byte(1){prefix} -> PrefixEntry{Owners: []sdk.AccAddress}`
 
 A entry mapping looks as follows:
-byte(1){domain}/{sequence} -> Entry{Owners, ContentHash}
+
+`byte(1){domain}/{sequence} -> Entry{Owners, ContentHash}`
 
 A reverse entry mapping looks as follows:
-byte(2){contentHash} -> Entry{Owners, Domain, LatestSequence}
+
+`byte(2){contentHash} -> Entry{Owners, Domain, LatestSequence}`
+
+The latest entry can be stored at:
+
+`byte(1){domain}/0`
 
 ## Future 
 
