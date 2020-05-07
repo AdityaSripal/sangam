@@ -123,8 +123,22 @@ type MsgCommitEntry struct {
 }
 ```
 
+## Ante
+
+The ante handler for register pre-commit will deduct the fee required to register a prefix.
+
 Both ante handlers for pre-commit and commit messages will verify that the sender must be a owner
 of the prefix. It will also deduct the registration fee required to register the entry.
+
+## Handler
+
+The prefix handler will register a prefix if it is not already claimed. 
+
+A pre-commit handler will ensure that the entry owners provided are a subset of the prefix owners.
+It will then store the pre-commit using the dns keeper.
+
+A commit handler will verify that the entry is successfully revealed. It will retreive the latest sequence
+of the entry and increment it by one. It will update the the entry mapping and the reverse mapping.
 
 ## Keeper
 
