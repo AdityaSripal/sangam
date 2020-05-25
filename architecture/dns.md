@@ -19,159 +19,182 @@ We will implement a DNS module supporting the following functionality:
 
 ## Types
 
-First, we define the `Entry` interface type. An `Entry` should always have at
-least one owner and a non-empty byte slice representing the hash of the content. 
-The key for the DNS mapping will simply be a `domain/{sequence}`. 
+The DNS system will consist of two types of entries: `DomainEntry` and `ContentEntry`.
+
+A domain may contain any number of subdomains and content entries. Both domains and entries must
+be uniquely namespaced under its subdomain (or globally unique if it is a top-level domain).
+
+A domain is owned by a `DomainOwner` interface, which defines authentication methods 
+for adding/updating/removing content and subdomains. Each domain contains a list of subdomains, 
+a list of content entries, and a parent domain (top level domains have nil as a domain).
+
+A content entry has a single domain, and an array of content hashes, with each update to the content hash
+appended to the array. Thus one can retreive the latest version as well as any previous version from the same entry.
+
+Domains are seperated by the `.` seperator, while content is seperated by the `/` seperator. Thus, a content `blog-post-1` 
+stored under the domain hierarchy `domain1 -> domain2 -> domain3` will be stored under the full path: 
+`domain1.domain2.domain3/blog-post-1`.
+
+All domain entries are set in store under the key `{DomainPrefix}/{Domain.Path()}`. All Content entries are stored under the 
+key `{ContentPrefix}/Content.Path()`.
+
+Each content hash must also have a reverse mapping from `{ReverseContentPrefix}/{ContentHash} -> {Content.Path()}`.
+
 
 ```go
 // exported.go
-type Entry interface {
-    GetOwners()  []sdk.AccAddress // sdk reference the cosmos-sdk
-    GetContentHash() []byte
+type DomainEntry interface {
+    Owner() DomainOwner
+    SubDomains() []DomainEntry
+    Contents() []ContentEntry
+    // returns parent domain, nil if top-level domain
+    Parent() DomainEntry
+
+    // returns the string identifier of this domain
+    String() string
+    // returns the full path string representation
+    // up to the global top-level domain
+    Path() string
+
+    // Returns the subdomain under this domain as specified by the given string
+    GetSubDomain(path string) DomainEntry
+    
+    // Returns the content under this domain as specified by path String
+    // Content may either be in this domain or in a subdomain
+    // Returns latest version by default
+    GetContent(path string) ContentEntry
+
+    // Returns content at a given sequence
+    GetContentAtSequenct(path string, seq uint64) ContentEntry
+
+    // Methods to add/update/delete subdomains and content
+    AddSubDomain(domain DomainEntry) error
+    AddPrecommit(name string, precommit []byte) error
+    AddContent(c ContentEntry, reveal uint64) error
+    UpdateSubDomain(name string, domain DomainEntry) error
+    UpdateContent(newHash []byte) error
+    DeleteSubDomain(name string) error
+    DeleteContent(name string)
 }
 
-// entry.go
-type Entry struct {
-	// Owners represent the addresses which have authority over this entry.
-	Owners []sdk.AccAddress `json:"owners" yaml:"owners"`
-
-	// ContentHash represents the hash of the entry's data.
-	ContentHash []byte `json:"content_hash" yaml:"content_hash"`
-
-	// Sequence
-	Sequence uint64 `json:"sequence" yaml:"sequence"`
+// exported.go
+type DomainOwner interface {
+    // authenticates add/update/deletes to subdomains of this domain
+    AuthenticateDomainChanges(sdk.Msg) error
+    // authenticates add/update/deletes to direct content in this domain
+    AuthenticateContentChanges(sdk.Msg) error
 }
 
-// GetOwners returns the owners of the entry.
-func (e Entry) GetOwners() []sdk.AccAddress {
-	return e.Owners
-}
+// exported.go
+type ContentEntry interface {
+    Name() string
+    Path() string
+    Parent() DomainEntry
+    GetContentHashes() [][]byte
 
-// GetContentHash returns the hash of the content.
-func (e Entry) GetContentHash() []byte {
-	return e.ContentHash
+    // returns content at latest Version
+    GetContent() []byte
+    GetContentAtVersion(seq uint64) []byte
 }
+```
 
-// prefix.go
-type PrefixEntry struct {
-    Owners []sdk.AccAddress
-}
+In order to prevent frontrunning of content registration, we implement a simple commit-reveal scheme.
 
-func (pe PrefixEntry) GetOwners() []sdk.AccAddress {
-    return pe.PrefixEntry
-}
+Before adding content under a given domain and name, the domain owner must authenticate a precommit of the content, 
+which will get stored under `{PrecommitPrefix}/{Domain.Path()}/Name} -> Precommit`. Only one precommit may be stored for a 
+given content path.
 
-func (pe PrefixEntry) GetContentHash() []byte {
-    return nil
-}
+```go
+type Precommit struct {
+    Name string
 
-// TODO: naming, InformationEntry? LatestEntry? 
-type ReverseEntry struct {
-    Owners []EntryOwner
-    Domain Domain
-    LatestSequence uint64
-}
-
-// precommit.go
-type PreCommit struct {
-    Owners []EntryOwners
-    Hash []byte   
-}
-
-// domain.go
-type Domain struct {
-    GetPrefix() string
-    GetContentName() string
-    GetBytes() []byte // []byte(prefix + content name)
-}
-
-// EntryOwner is owner over a specific entry. An address may own many entries.
-type EntryOwner {
-    Address sdk.AccAddress // owner address
-    PrefixOwnershipIndex uint64 // index within the set of prefix owners
+    Precommit []byte
 }
 ```
 
 ## Msgs
 
-We will define three Msg types, `MsgRegisterPrefix`, `MsgPreCommitEntry` and `MsgCommitEntry`.
-Updates to entries will use `MsgPreCommitEntry` and `MsgCommitEntry`
+We will define three Msg interfaces, `MsgRegisterDomain`, `MsgPreCommit` and `MsgCommitContent`.
+Updates to entries will use `MsgPreCommitEntry` and `MsgCommitContent`. Deletions of content/subdomains will include 
+the path to be deleted. All concrete msg types may define additional fields to pass domain authentication.
 
 ```go
-// Register a prefix with a set of owners. This message will fails for already registered prefixes.
-type MsgRegisterPrefix struct {
-    Prefix string
-    Owners []sdk.AccAddress
+// Register a domain under a given path.
+type MsgRegisterDomain interface {
+    Domain() string
+    ParentPath() string // return full path of parent. Empty string if registering top-level domain
+    DomainOwner() DomainOwner
 }
 
-// A pre-commit entry will submit a domain, a hash, and a set of owners.
-// Hash = hash(domain + encoded_entry + random_nonce)
-type MsgPreCommitEntry struct {
-    Domain Domain
-    Hash []byte
-    Owners EntryOwners // first address must be signer of the message
+// A pre-commit entry will submit a precommit under a domain with a given name
+// Hash = hash(content_hash + random_nonce)
+type MsgPreCommit interface {
+    DomainPath() string // return full path of domain
+    Name() string // name of content
+    Hash []byte // precomit of content
 }
 
-// a commit will be accepted if the the pre-commit hash == hash(domain + encoded_entry + nonce)
-// if successful, the pre-commit is removed and the sequence number for the entry is incremented.
-// Initial commits have a sequence value of 0
+// a commit will be accepted if the the pre-commit hash == hash(content_hash + nonce)
+// if successful, the pre-commit is removed and the contenthash is appended to the contenthashes array
+// If the content entry does not exist, a new one is created.
 type MsgCommitEntry struct {
     Nonce uint64
-    Domain Domain
-    Entry exported.Entry
-    Signer EntryOwner
+    ContentHash() []byte
+    DomainPath() string
+    Name() string
 }
 ```
 
 ## Ante
 
-The ante handler for register pre-commit will deduct the fee required to register a prefix.
+The ante handler for the dns module will assert that the minumum fee for registering domains and content is submitted.
 
-Both ante handlers for pre-commit and commit messages will verify that the sender must be a owner
-of the prefix. It will also deduct the registration fee required to register the entry.
+For all registrations/updates/deletions of domains, it will call `parent.DomainOwner().AuthenticateDomainChanges(msg)` which 
+will perform arbitrary authentication checks on the msg before allowing the msg to pass.
+
+For precommits/commits/deletions of content, antehandler will call `domain.DomainOwner().AuthenticateContentChanges(msg)`, which 
+will perform arbitrary authentication checks on the msg before allowing the msg to pass. For commit msgs, the antehandler will also 
+verify that the reveal is valid for the precommit.
 
 ## Handler
 
-The prefix handler will register a prefix if it is not already claimed. 
+The domain handler will construct the domain entry and add it under the parent domain.
 
-A pre-commit handler will ensure that the entry owners provided are a subset of the prefix owners.
-It will then store the pre-commit using the dns keeper.
+The precommit handler will construct the precommit entry and store it under the procommit key, replacing the previous precommit 
+if it exists. 
 
-A commit handler will verify that the entry is successfully revealed. It will retreive the latest sequence
-of the entry and increment it by one. It will update the the entry mapping and the reverse mapping.
+The commit handler will append the content hash to the contenthashes array, and construct a new contententry if it does not already 
+exist.
+
+Updates and deletions for domains and content are straightforward in handler, once domain-owner authentication passes in antehandler.
 
 ## Keeper
 
-We will use byte prefixes to separate storage of pre-commits, entries, and reverse entry mappings.
+We will use byte prefixes to separate storage of pre-commits, entries, reverse entry, and domain mappings.
 They will be assinged as follows:
 
 ```
 byte(0) - pre-commits
 byte(1) - regular entries
 byte(2) - reverse mapping entries
+byte(3) - domains
 ```
 
-A **domain** is `{prefix}/{contentName}`
+A **domain** mapping looks as follows:
+
+ `{byte(3){domaim.Path()} -> DomainEntry`
 
 A **pre-commit** mapping looks as follows:
 
-`byte(0){domain} -> PreCommit{Owners: []Owner, Hash}`
-
-A **prefix** mapping looks as follows:
-
-`byte(1){prefix} -> PrefixEntry{Owners: []sdk.AccAddress}`
+`byte(0){content.Path()} -> PreCommit`
 
 An **entry** mapping looks as follows:
 
-`byte(1){domain}/{sequence} -> Entry{Owners, ContentHash}`
+`byte(1){content.Path} -> ContentEntry`
 
 A **reverse entry** mapping looks as follows:
 
-`byte(2){contentHash} -> ReverseEntry{Owners, Domain, LatestSequence}`
-
-The **latest entry** can be stored at:
-
-`byte(1){domain}/0`
+`byte(2){contentHash} -> content.Path()`
 
 ## Future 
 
