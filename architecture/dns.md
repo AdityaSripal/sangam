@@ -65,7 +65,7 @@ type DomainEntry interface {
     GetContent(path string) ContentEntry
 
     // Returns content at a given sequence
-    GetContentAtSequenct(path string, seq uint64) ContentEntry
+    GetContentAtSequence(path string, seq uint64) ContentEntry
 
     // Methods to add/update/delete subdomains and content
     AddSubDomain(domain DomainEntry) error
