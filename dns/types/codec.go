@@ -9,7 +9,6 @@ var ModuleCdc *codec.Codec
 
 // RegisterCodec registers the Tendermint types
 func RegisterCodec(cdc *codec.Codec) {
-	cdc.RegisterConcrete(Entry{}, "dns/types/Entry", nil)
 	cdc.RegisterConcrete(Domain{}, "dns/types/Domain", nil)
 	cdc.RegisterConcrete(MsgPreCommitEntry{}, "dns/types/MsgPreCommitEntry", nil)
 	cdc.RegisterConcrete(MsgCommitEntry{}, "dns/types/MsgCommitEntry", nil)

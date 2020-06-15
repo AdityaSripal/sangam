@@ -3,37 +3,131 @@ package types
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+
+	"github.com/AdityaSripal/sangam/dns/exported"
 )
 
-// Message types for DNS module
+// message types for DNS module
 const (
+	TypeMsgRegisterDomain string = "register_domain"
 	TypeMsgPreCommitEntry string = "pre_commit_entry"
 	TypeMsgCommitEntry    string = "commit_entry"
 )
 
-var _ sdk.Msg = MsgPreCommitEntry{}
+// ensure messages implement sdk.Msg
+var (
+	_ sdk.Msg = MsgRegisterDomain{}
+	_ sdk.Msg = MsgPreCommitEntry{}
+	_ sdk.Msg = MsgCommitEntry{}
+)
+
+// MsgRegisterDomain is used to register a new domain that does not already exist. This message
+// does not require a commit-reveal scheme
+type MsgRegisterDomain struct {
+	Name       string
+	ParentPath string
+	Owner      exported.DomainOwner
+	Signers    []sdk.AccAddress
+}
+
+// NewMsgRegisterDomain returns a new instance of MsgRegisterDomain.
+func NewMsgRegisterDomain(name, parentPath string, owner DomainOwner, signers []sdk.AccAddress) MsgRegisterDomain {
+	return MsgRegisterDomain{
+		DomainName: name,
+		ParentPath: parentPath,
+		Owner:      owner,
+		Signers:    signers,
+	}
+}
+
+// Domain returns the domain name for this domain.
+func (msg MsgRegisterDomain) Domain() string {
+	return msg.Name
+}
+
+// GetParentPath returns the full path of the parents. An empty string is used if the domain
+// being registered is a top-level domain.
+func (msg MsgRegisterDomain) GetParentPath() string {
+	return msg.ParentPath
+}
+
+// GetOwner returns the owner object of this domain.
+func (msg MsgRegisterDomain) Owner() exported.DomainOwner {
+	return msg.Owner
+}
+
+// Route implements sdk.Msg
+func (msg MsgRegisterDomain) Route() string {
+	return RouterKey
+}
+
+// Type implements sdk.Msg
+func (msg MsgRegisterDomain) Type() string {
+	return TypeMsgRegisterDomain
+}
+
+// ValidateBasic does basic validation of the message fields.
+func (msg MsgRegisterDomain) ValidateBasic() error {
+	if strings.TrimSpace(msg.Name) == "" {
+		return sdkerrors.Wrap(ErrInvalidName, "domain name cannot be empty")
+	}
+	if strings.TrimSpace(msg.ParentPath) == "" {
+		return sdkerrors.Wrap(ErrInvalidPath, "domain parent path cannot be empty")
+	}
+	if msg.Owner == nil {
+		return sdkerrors.Wrap(ErrInvalidOwner, "domain owner cannot be empty")
+	}
+	if len(msg.Signer) == 0 {
+		return sdkerrors.Wrap(ErrInvalidSigners, "there must be at least one signer")
+	}
+
+	return nil
+}
+
+// GetSignBytes implements Msg
+func (msg MsgRegisterDomain) GetSignBytes() []byte {
+	bz := ModuleCdc.MustMarshalJSON(msg)
+	return sdk.MustSortJSON(bz)
+}
+
+// GetSigners implements sdk.Msg
+func (msg MsgRegisterDomain) GetSigners() []sdk.AccAddress {
+	return msg.Signers
+}
 
 // MsgPreCommitEntry is the initial registration of a DNS Entry using a commit
 // reveal scheme.
+// Hash = hash(content_hash + domain_path + random_nonce)
 type MsgPreCommitEntry struct {
-	// Domain is the lookup key for the DNS Entry.
-	Domain Domain `json:"path" yaml:"path"`
-
-	// Hash is the hash of a random nonce and the encoded entry.
-	Hash []byte `json:"hash" yaml:"hash"`
-
-	// owners of the entry, the first account is expected to be the signer
-	// of this message.
-	Owners []sdk.AccAddress `json:"owners" yaml:"owners"`
+	DomainPath  string           `json:"domain_path" yaml:"domain_path"`
+	ContentName string           `json:"content_name" yaml:"content_name"`
+	Hash        []byte           `json:"hash" yaml:"hash"`
+	Signers     []sdk.AccAddress `json:"signers" yaml:"signers"`
 }
 
 // NewMsgPreCommitEntry returns a new instance of MsgPreCommitEntry.
-func NewMsgPreCommitEntry(domain Domain, hash []byte, owners []sdk.AccAddress) MsgPreCommitEntry {
+func NewMsgPreCommitEntry(domainPath, contentName string, hash []byte, signers []sdk.AccAddress) MsgPreCommitEntry {
 	return MsgPreCommitEntry{
-		Domain: domain,
-		Hash:   hash,
-		Owners: owners,
+		DomainPath:  domainPath,
+		ContentName: contentName,
+		Hash:        hash,
+		Signers:     signers,
 	}
+}
+
+// DomainPath returns the fill path of the domain.
+func (msg MsgPreCommitEntry) DomainPath() string {
+	return msg.DomainPath
+}
+
+// Name returns the name of the content being registered.
+func (msg MsgPreCommitEntry) Name() string {
+	return msg.ContentName
+}
+
+// GetHash returns the hash of the random nonce + encoded entry
+func (msg MsgPreCommitEntry) GetHash() []byte {
+	return msg.Hash
 }
 
 // Route implements sdk.Msg
@@ -66,49 +160,38 @@ func (msg MsgPreCommitEntry) GetSignBytes() []byte {
 
 // GetSigners implements sdk.Msg
 func (msg MsgPreCommitEntry) GetSigners() []sdk.AccAddress {
-	return []sdk.AccAddress{msg.Owners[0]}
-}
-
-// GetDomain returns the path used to map the DNS entry.
-func (msg MsgPreCommitEntry) GetDomain() Domain {
-	return msg.Domain
-}
-
-// GetOwners returns the owners of the future entry.
-func (msg MsgPreCommitEntry) GetOwners() []sdk.AccAddress {
-	return msg.Owners
-}
-
-// GetHash returns the hash of the random nonce + encoded entry
-func (msg MsgPreCommitEntry) GetHash() []byte {
-	return msg.Hash
+	return msg.Signers
 }
 
 // MsgCommitEntry is the final registration of a DNS Entry with the
 // revealed random nonce and the unhashed Entry.
 type MsgCommitEntry struct {
-	// Nonce is the random nonce used in the pre-commit message.
-	Nonce uint64 `json:"nonce" yaml:"nonce"`
-
-	// Domain is the lookup key for the DNS Entry.
-	Domain Domain `json:"domain" yaml:"domain"`
-
-	// Entry is the DNS entry being registered.
-	Entry Entry `json:"entry" yaml:"entry"`
-
-	// Owners of the commit entry. First account is expected to be the signer
-	// of this message. Owners must match the pre-commit
-	Owners []sdk.AccAddress
+	Nonce       uint64           `json:"nonce" yaml:"nonce"`               // random nonce used in pre-commit message
+	ContentHash []byte           `json:"content_hash" yaml:"content_hash"` // hash of the content being registered
+	DomainPath  string           `json:"domain_path" yaml:"domain_path"`   // full path of the domain
+	Name        string           `json:"name" yaml:"name"`                 // name of the content
+	Signers     []sdk.AccAddress `json:"signers" yaml:"signers"`           // signers of this message
 }
 
 // NewMsgCommitEntry returns a new instance of MsgCommitEntry.
-func NewMsgCommitEntry(nonce uint64, domain Domain, entry Entry, owners []sdk.AccAddress) MsgCommitEntry {
+func NewMsgCommitEntry(nonce uint64, contentHash []byte, domainPath, name string, signers []sdk.AccAddress) MsgCommitEntry {
 	return MsgCommitEntry{
-		Nonce:  nonce,
-		Domain: domain,
-		Entry:  entry,
-		Owners: owners,
+		Nonce:       nonce,
+		ContentHash: contentHash,
+		DomainPath:  domainPath,
+		Name:        name,
+		Signers:     signers,
 	}
+}
+
+// Nonce returns the random nonce used in the pre-commit message.
+func (msg MsgCommitEntry) Nonce() uint64 {
+	return msg.Nonce
+}
+
+// ContentHash returns the content hash being registered.
+func (msg MsgCommitEntry) ContentHash() []byte {
+	return msg.Domain
 }
 
 // Route implements sdk.Msg.
@@ -143,19 +226,4 @@ func (msg MsgCommitEntry) GetSignBytes() []byte {
 // GetSigners implements sdk.Msg
 func (msg MsgCommitEntry) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msg.Owners[0]}
-}
-
-// GetNonce returns the random nonce used in the pre-commit message.
-func (msg MsgCommitEntry) GetNonce() uint64 {
-	return msg.Nonce
-}
-
-// GetDomain returns the key used for the DNS entry.
-func (msg MsgCommitEntry) GetDomain() Domain {
-	return msg.Domain
-}
-
-// GetEntry returns the entry being registered.
-func (msg MsgCommitEntry) GetEntry() Entry {
-	return msg.Entry
 }

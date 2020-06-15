@@ -6,11 +6,11 @@ import (
 
 // DomainEntry
 type DomainEntry interface {
-	Owner() DomainOwner
-	SubDomains() []DomainEntry
-	Contents() []ContentEntry
+	GetOwner() DomainOwner
+	GetSubDomains() []DomainEntry
+	GetContents() []ContentEntry
 	// returns parent domain, nil if top-level domain
-	Parent() DomainEntry
+	GetParent() DomainEntry
 
 	// returns the string identifier of this domain
 	String() string
@@ -49,9 +49,9 @@ type DomainOwner interface {
 
 // ContentEntry
 type ContentEntry interface {
-	Name() string
+	GetName() string
 	Path() string
-	Parent() DomainEntry
+	GetParent() DomainEntry
 	GetContentHashes() [][]byte
 
 	// returns content at latest Version

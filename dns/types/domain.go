@@ -1,102 +1,138 @@
 package types
 
 import (
-	"strings"
-
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+
+	"github.com/AdityaSripal/sangam/dns/exported"
 )
 
-// DomainEntry represents the key used to map to a DNS entry
-type DomainEntry struct {
-	Owner      DomainOwner `json:"owner" yaml:"owner"`
-	SubDomains []DomainEntry
-	Contents   []ContentEntry
-	Parent     DomainEntry
-
-	Name string `json:"name" yaml:"name"`
+// Domain
+type Domain struct {
+	Owner      exported.DomainOwner `json:"owner" yaml:"owner"`
+	SubDomains []Domain             `json:"sub_domains" yaml:"sub_domains"`
+	Contents   []Content            `json:"contents" yaml:"contents"`
+	Parent     Domain               `json:"parent" yaml:"parent"`
+	Name       string               `json:"name" yaml:"name"`
 }
 
-// Owner returns the domain owner.
-func (de DomainEntry) Owner() DomainOwner {
-	return de.Owner
+// GetOwner returns the domain owner.
+func (d Domain) GetOwner() exported.DomainOwner {
+	return d.Owner
 }
 
-// SubDomains returns the sub-domains underneath this domain entry.
-func (de DomainEntry) SubDomains() string {
-	return de.SubDomains
+// GetSubDomains returns the sub-domains underneath this domain entry.
+func (d Domain) GetSubDomains() []Domain {
+	return d.SubDomains
 }
 
-// Contents returns the contents represented at this domain entry.
-func (de DomainEntry) Contents() []ContentryEntry {
-	return de.Contents
+// GetContents returns the contents represented at this domain entry.
+func (d Domain) GetContents() []Content {
+	return d.Contents
 }
 
-// Parent returns the parent entry for this domain entry.
-func (de DomainEntry) Parents() DomainEntry {
-	return de.Parent
+// GetParent returns the parent entry for this domain entry.
+func (d Domain) GetParents() Domain {
+	return d.Parent
 }
 
 // String returns the string identifier for this domain.
-func (de DomainEntry) String() string {
-	return Name
+func (d Domain) String() string {
+	return d.Name
 }
 
 // Path returns the full path string representation up to the global top-level
-func (de DomainEntry) Path() string {
-	return de.Parent.Path() + de.String()
+func (d Domain) Path() string {
+	return d.Parent.Path() + d.String()
 }
 
 // GetSubDomain returns the subdomain under this domain as specified by the given string.
-func (de DomainEntry) GetSubDomain(path string) DomainEntry {
+func (d Domain) GetSubDomain(path string) Domain {
 	// TODO: implement
-	return nil
+	return Domain{}
 }
 
 // GetContent returns the content under this domain as specified by the path. The content
 // may either be in this domain or in a sub-domain. The latest version is returned by default.
-func (de DomainEntry) GetContent(path string) ContentEntry {
+func (d Domain) GetContent(path string) Content {
 	// TODO: implement
-	return nil
+	return Domain{}
 }
 
 // GetContentAtSequence returns the content at the given sequence.
-func (de DomainEntry) GetContentAtSequence(path string, seq uint64) ContentEntry {
-	// TODO: implement
-	return nil
+func (d Domain) GetContentAtSequence(path string, seq uint64) Content {
+	return d.Contents[seq]
 }
 
 // AddSubDomain adds a sub-domain to the current domain entry.
-func (de DomainEntry) AddSubDomain(domain DomainEntry) error {
-	if de.GetSubDomain(domain) != nil {
+func (d Domain) AddSubDomain(domain Domain) error {
+	if d.GetSubDomain(domain) != nil {
 		return sdkerrors.Wrapf(
 			ErrEntryExists,
-			"cannot add sub-domain (%v) that already exists within this domain (%v)", domain, de,
+			"cannot add sub-domain (%v) that already exists within this domain (%v)", domain, d,
 		)
 	}
 
-	de.SubDomains = append(de.SubDomains, domain)
+	d.SubDomains = append(d.SubDomains, domain)
 	return nil
 }
 
 // AddPreCommit adds a pre-commit related to this domain entry.
-func (de DomainEntry) AddPreCommit(name string, precommit []byte) error {
+func (d Domain) AddPreCommit(name string, precommit []byte) error {
 	// TODO: implement
 	return nil
 }
 
 // AddContent adds a content entry to this domain.
-func (de DomainEntry) AddContent(content ContentEntry, reveal uint64) error {
+func (d Domain) AddContent(content Content, reveal uint64) error {
 	// TODO: implement
 
-	if de.GetContent(content) != nil {
+	if d.GetContent(content) != nil {
 		return sdkerrors.Wrapf(
 			ErrEntryExists,
-			"cannot add content (%v) that already exists within this domain (%v)", content, de,
+			"cannot add content (%v) that already exists within this domain (%v)", content, d,
 		)
 	}
 
-	de.Contents = append(de.Contents, content)
+	d.Contents = append(d.Contents, content)
 	return nil
 }
 
 // UpdateSubDomain updates the sub-domain contained within this entry.
+func (d Domain) UpdateSubDomain(name string, domain Domain) error {
+	for i, subDomain := range d.SubDomains {
+		if name == subDomain.GetName() {
+			d.SubDomains[i] = domain
+			return nil
+		}
+	}
+	return sdkerrors.Wrapf(ErrDomainNotFound, "sub-domain with name (%s) not found for parent domain (%v)", name, d)
+}
+
+// UpdateContent updates the content contained within this entry.
+// XXX: don't you need a sequence specifiying which content?
+func (d Domain) UpdateContent(newHash []byte) error {
+	// TODO: implement
+	return nil
+}
+
+// DeleteSubDomain deletes the subdomain with the provided name.
+func (d Domain) DeleteSubDomain(name string) error {
+	for i, subDomain := range d.SubDomains {
+		if name == subDomain.GetName() {
+			d.SubDomains[i] = nil
+			return nil
+		}
+	}
+	return sdkerrors.Wrapf(ErrDomainNotFound, "sub-domain with name (%s) not found for parent domain (%v)", name, d)
+}
+
+// DeleteContent deletes the content with the provided name under this sub-domain.
+func (d Domain) DeleteContent(name string) error {
+	for i, content := range d.Contents {
+		if name == content.GetName() {
+			d.Contents[i] = nil
+			return nil
+		}
+	}
+	return sdkerrors.Wrapf(ErrContentNotFound, "content with name (%s) not found for parent domain (%v)", name, d)
+}
