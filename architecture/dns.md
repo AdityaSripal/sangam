@@ -19,7 +19,7 @@ We will implement a DNS module supporting the following functionality:
 
 ## Types
 
-The DNS system will consist of two types of entries: `DomainEntry` and `ContentEntry`.
+The DNS system will consist of two types of entries: `Domain` and `Content`.
 
 A domain may contain any number of subdomains and content entries. Both domains and entries must
 be uniquely namespaced under its subdomain (or globally unique if it is a top-level domain).
@@ -43,12 +43,12 @@ Each content hash must also have a reverse mapping from `{ReverseContentPrefix}/
 
 ```go
 // exported.go
-type DomainEntry interface {
+type Domain interface {
     Owner() DomainOwner
-    SubDomains() []DomainEntry
-    Contents() []ContentEntry
+    SubDomains() []Domain
+    Contents() []Content
     // returns parent domain, nil if top-level domain
-    Parent() DomainEntry
+    Parent() Domain
 
     // returns the string identifier of this domain
     String() string
@@ -57,21 +57,21 @@ type DomainEntry interface {
     Path() string
 
     // Returns the subdomain under this domain as specified by the given string
-    GetSubDomain(path string) DomainEntry
+    GetSubDomain(path string) Domain
     
     // Returns the content under this domain as specified by path String
     // Content may either be in this domain or in a subdomain
     // Returns latest version by default
-    GetContent(path string) ContentEntry
+    GetContent(path string) Content
 
     // Returns content at a given sequence
-    GetContentAtSequence(path string, seq uint64) ContentEntry
+    GetContentAtSequence(path string, seq uint64) Content
 
     // Methods to add/update/delete subdomains and content
-    AddSubDomain(domain DomainEntry) error
+    AddSubDomain(domain Domain) error
     AddPrecommit(name string, precommit []byte) error
-    AddContent(c ContentEntry, reveal uint64) error
-    UpdateSubDomain(name string, domain DomainEntry) error
+    AddContent(c Content, reveal uint64) error
+    UpdateSubDomain(name string, domain Domain) error
     UpdateContent(newHash []byte) error
     DeleteSubDomain(name string) error
     DeleteContent(name string)
@@ -86,10 +86,12 @@ type DomainOwner interface {
 }
 
 // exported.go
-type ContentEntry interface {
+type Content interface {
+    // human readable name for content
     Name() string
+    // full path of content {parent.Path()/name}
     Path() string
-    Parent() DomainEntry
+    Parent() Domain
     GetContentHashes() [][]byte
 
     // returns content at latest Version
@@ -115,7 +117,7 @@ type Precommit struct {
 ## Msgs
 
 We will define three Msg interfaces, `MsgRegisterDomain`, `MsgPreCommit` and `MsgCommitContent`.
-Updates to entries will use `MsgPreCommitEntry` and `MsgCommitContent`. Deletions of content/subdomains will include 
+Updates to entries will use `MsgPreCommitContent` and `MsgCommitContent`. Deletions of content/subdomains will include 
 the path to be deleted. All concrete msg types may define additional fields to pass domain authentication.
 
 ```go
@@ -128,7 +130,7 @@ type MsgRegisterDomain interface {
 
 // A pre-commit entry will submit a precommit under a domain with a given name
 // Hash = hash(content_hash + random_nonce)
-type MsgPreCommit interface {
+type MsgPreCommitContent interface {
     DomainPath() string // return full path of domain
     Name() string // name of content
     Hash []byte // precomit of content
@@ -137,7 +139,7 @@ type MsgPreCommit interface {
 // a commit will be accepted if the the pre-commit hash == hash(content_hash + nonce)
 // if successful, the pre-commit is removed and the contenthash is appended to the contenthashes array
 // If the content entry does not exist, a new one is created.
-type MsgCommitEntry struct {
+type MsgCommitContent struct {
     Nonce uint64
     ContentHash() []byte
     DomainPath() string
@@ -182,7 +184,7 @@ byte(3) - domains
 
 A **domain** mapping looks as follows:
 
- `{byte(3){domaim.Path()} -> DomainEntry`
+ `{byte(3){domaim.Path()} -> Domain`
 
 A **pre-commit** mapping looks as follows:
 
@@ -190,7 +192,7 @@ A **pre-commit** mapping looks as follows:
 
 An **entry** mapping looks as follows:
 
-`byte(1){content.Path} -> ContentEntry`
+`byte(1){content.Path} -> Content`
 
 A **reverse entry** mapping looks as follows:
 
