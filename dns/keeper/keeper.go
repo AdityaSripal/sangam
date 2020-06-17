@@ -12,21 +12,17 @@ type Keeper struct {
 	cdc      *codec.Codec
 }
 
-// SetEntry stores an entry at the given domain.
-func (k Keeper) SetEntry(ctx sdk.Context, domain types.Domain, entry types.Entry) {
+func (k Keeper) SetDomain(ctx sdk.Context, domain types.Domain) {
 	store := ctx.KVStore(k.storeKey)
-	bz := k.cdc.MustMarshalBinaryBare(&entry)
-	store.Set(domain.GetBytes(), bz)
+	bz := k.cdc.MustMarshalBinaryBare(&domain)
+	key := types.GetDomainKey(domain.Path())
+	store.Set(key, bz)
 }
 
-// GetEntry gets the entry with the given domain.
-func (k Keeper) GetEntry(ctx sdk.Context, domain types.Domain) (entry types.Entry, _ bool) {
+func (k Keeper) GetDomain(ctx sdk.Context, path string) (types.Domain, bool) {
 	store := ctx.KVStore(k.storeKey)
-	bz := store.Get(domain.GetBytes())
-	if bz == nil {
-		return entry, false
-	}
-
-	k.cdc.MustUnmarshalBinaryBare(bz, &entry)
-	return entry, true
+	var dom types.Domain
+	bz := store.Get(types.GetDomainKey(path))
+	k.cdc.MustUnmarshalBinaryBare(bz, &dom)
+	return dom, true
 }

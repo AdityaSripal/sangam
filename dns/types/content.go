@@ -3,7 +3,7 @@ package types
 // Content
 type Content struct {
 	Name          string
-	Parent        Domain
+	Parent        string
 	ContentHashes [][]byte
 }
 
@@ -14,11 +14,11 @@ func (c Content) GetName() string {
 
 // Path returns the full path to this content entry.
 func (c Content) Path() string {
-	return c.Path() + c.GetName()
+	return c.Parent + c.GetName()
 }
 
-// GetParent returns the parent domain of this content.
-func (c Content) GetParent() Domain {
+// GetParent returns the parent's full path.
+func (c Content) GetParent() string {
 	return c.Parent
 }
 

@@ -13,3 +13,12 @@ const (
 	// QuerierRoute is the querier route for IBC transfer
 	QuerierRoute = ModuleName
 )
+
+var (
+	// Key for store prefixes
+	DomainKey = []byte{0x11}
+)
+
+func GetDomainKey(domain string) []byte {
+	return append(DomainKey, []byte(domain)...)
+}

@@ -17,26 +17,6 @@ type DomainEntry interface {
 	// returns the full path string representation
 	// up to the global top-level domain
 	Path() string
-
-	// Returns the subdomain under this domain as specified by the given string
-	GetSubDomain(path string) DomainEntry
-
-	// Returns the content under this domain as specified by path String
-	// Content may either be in this domain or in a subdomain
-	// Returns latest version by default
-	GetContent(path string) ContentEntry
-
-	// Returns content at a given sequence
-	GetContentAtSequenct(path string, seq uint64) ContentEntry
-
-	// Methods to add/update/delete subdomains and content
-	AddSubDomain(domain DomainEntry) error
-	AddPrecommit(name string, precommit []byte) error
-	AddContent(c ContentEntry, reveal uint64) error
-	UpdateSubDomain(name string, domain DomainEntry) error
-	UpdateContent(newHash []byte) error
-	DeleteSubDomain(name string) error
-	DeleteContent(name string)
 }
 
 // DomainOwner
