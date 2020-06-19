@@ -7,10 +7,10 @@ import (
 // DomainEntry
 type DomainEntry interface {
 	GetOwner() DomainOwner
-	GetSubDomains() []DomainEntry
+	GetSubDomains() []string
 	GetContents() []ContentEntry
 	// returns parent domain, nil if top-level domain
-	GetParent() DomainEntry
+	GetParent() string
 
 	// returns the string identifier of this domain
 	String() string
@@ -22,16 +22,16 @@ type DomainEntry interface {
 // DomainOwner
 type DomainOwner interface {
 	// authenticates add/update/deletes to subdomains of this domain
-	AuthenticateDomainChanges(sdk.Msg) error
+	AuthenticateDomainChanges(sdk.Context, sdk.Msg) error
 	// authenticates add/update/deletes to direct content in this domain
-	AuthenticateContentChanges(sdk.Msg) error
+	AuthenticateContentChanges(sdk.Context, sdk.Msg) error
 }
 
 // ContentEntry
 type ContentEntry interface {
 	GetName() string
 	Path() string
-	GetParent() DomainEntry
+	GetParent() string
 	GetContentHashes() [][]byte
 
 	// returns content at latest Version
