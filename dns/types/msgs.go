@@ -1,6 +1,8 @@
 package types
 
 import (
+	"strings"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
@@ -31,9 +33,9 @@ type MsgRegisterDomain struct {
 }
 
 // NewMsgRegisterDomain returns a new instance of MsgRegisterDomain.
-func NewMsgRegisterDomain(name, parentPath string, owner DomainOwner, signers []sdk.AccAddress) MsgRegisterDomain {
+func NewMsgRegisterDomain(name, parentPath string, owner exported.DomainOwner, signers []sdk.AccAddress) MsgRegisterDomain {
 	return MsgRegisterDomain{
-		DomainName: name,
+		Name:       name,
 		ParentPath: parentPath,
 		Owner:      owner,
 		Signers:    signers,
@@ -41,7 +43,7 @@ func NewMsgRegisterDomain(name, parentPath string, owner DomainOwner, signers []
 }
 
 // Domain returns the domain name for this domain.
-func (msg MsgRegisterDomain) Domain() string {
+func (msg MsgRegisterDomain) GetDomain() string {
 	return msg.Name
 }
 
@@ -52,7 +54,7 @@ func (msg MsgRegisterDomain) GetParentPath() string {
 }
 
 // GetOwner returns the owner object of this domain.
-func (msg MsgRegisterDomain) Owner() exported.DomainOwner {
+func (msg MsgRegisterDomain) GetOwner() exported.DomainOwner {
 	return msg.Owner
 }
 
@@ -77,8 +79,8 @@ func (msg MsgRegisterDomain) ValidateBasic() error {
 	if msg.Owner == nil {
 		return sdkerrors.Wrap(ErrInvalidOwner, "domain owner cannot be empty")
 	}
-	if len(msg.Signer) == 0 {
-		return sdkerrors.Wrap(ErrInvalidSigners, "there must be at least one signer")
+	if len(msg.Signers) == 0 {
+		return sdkerrors.Wrap(sdkerrors.ErrUnauthorized, "there must be at least one signer")
 	}
 
 	return nil
@@ -99,7 +101,7 @@ func (msg MsgRegisterDomain) GetSigners() []sdk.AccAddress {
 // reveal scheme.
 // Hash = hash(content_hash + domain_path + random_nonce)
 type MsgPreCommitEntry struct {
-	DomainPath  string           `json:"domain_path" yaml:"domain_path"`
+	Path        string           `json:"domain_path" yaml:"domain_path"`
 	ContentName string           `json:"content_name" yaml:"content_name"`
 	Hash        []byte           `json:"hash" yaml:"hash"`
 	Signers     []sdk.AccAddress `json:"signers" yaml:"signers"`
@@ -108,7 +110,7 @@ type MsgPreCommitEntry struct {
 // NewMsgPreCommitEntry returns a new instance of MsgPreCommitEntry.
 func NewMsgPreCommitEntry(domainPath, contentName string, hash []byte, signers []sdk.AccAddress) MsgPreCommitEntry {
 	return MsgPreCommitEntry{
-		DomainPath:  domainPath,
+		Path:        domainPath,
 		ContentName: contentName,
 		Hash:        hash,
 		Signers:     signers,
@@ -117,7 +119,7 @@ func NewMsgPreCommitEntry(domainPath, contentName string, hash []byte, signers [
 
 // DomainPath returns the fill path of the domain.
 func (msg MsgPreCommitEntry) DomainPath() string {
-	return msg.DomainPath
+	return msg.Path
 }
 
 // Name returns the name of the content being registered.
@@ -145,11 +147,11 @@ func (msg MsgPreCommitEntry) ValidateBasic() error {
 	if len(msg.Hash) == 0 {
 		return sdkerrors.Wrap(ErrInvalidHash, "hash cannot be empty")
 	}
-	if len(msg.Owners) == 0 {
-		return sdkerrors.Wrap(ErrInvalidOwners, "pre commit entry message must have at least one owner")
+	if len(msg.Signers) == 0 {
+		return sdkerrors.Wrap(sdkerrors.ErrUnauthorized, "Signers cannot be empty")
 	}
 
-	return msg.Domain.ValidateBasic()
+	return nil
 }
 
 // GetSignBytes implements Msg
@@ -185,13 +187,13 @@ func NewMsgCommitEntry(nonce uint64, contentHash []byte, domainPath, name string
 }
 
 // Nonce returns the random nonce used in the pre-commit message.
-func (msg MsgCommitEntry) Nonce() uint64 {
+func (msg MsgCommitEntry) GetNonce() uint64 {
 	return msg.Nonce
 }
 
 // ContentHash returns the content hash being registered.
-func (msg MsgCommitEntry) ContentHash() []byte {
-	return msg.Domain
+func (msg MsgCommitEntry) GetContentHash() []byte {
+	return msg.ContentHash
 }
 
 // Route implements sdk.Msg.
@@ -207,14 +209,13 @@ func (msg MsgCommitEntry) Type() string {
 // ValidateBasic ensures that the key is not empty and the entry
 // is well formed.
 func (msg MsgCommitEntry) ValidateBasic() error {
-	if err := msg.Domain.ValidateBasic(); err != nil {
-		return err
+	if len(msg.ContentHash) == 0 {
+		return sdkerrors.Wrap(ErrInvalidHash, "no hash of content")
 	}
-	if len(msg.Owners) == 0 {
-		return sdkerrors.Wrap(ErrInvalidOwners, "owners cannot be empty")
+	if len(msg.Signers) == 0 {
+		return sdkerrors.Wrap(sdkerrors.ErrUnauthorized, "owners cannot be empty")
 	}
-
-	return msg.Entry.ValidateBasic()
+	return nil
 }
 
 // GetSignBytes implements Msg
@@ -225,5 +226,5 @@ func (msg MsgCommitEntry) GetSignBytes() []byte {
 
 // GetSigners implements sdk.Msg
 func (msg MsgCommitEntry) GetSigners() []sdk.AccAddress {
-	return []sdk.AccAddress{msg.Owners[0]}
+	return []sdk.AccAddress{msg.Signers[0]}
 }

@@ -5,7 +5,8 @@ import (
 )
 
 var (
-	ErrInvalidName       = sdkerrors.Register(ModuleName, 2, "invalid name")
-	ErrEntryDoesNotExist = sdkerrors.Register(ModuleName, 3, "entry does not exist")
-	ErrEntryExists       = sdkerrors.Register(ModuleName, 4, "entry already exists")
+	ErrInvalidHash  = sdkerrors.Register(ModuleName, 2, "invalid hash")
+	ErrInvalidName  = sdkerrors.Register(ModuleName, 3, "invalid name")
+	ErrInvalidPath  = sdkerrors.Register(ModuleName, 4, "invalid path")
+	ErrInvalidOwner = sdkerrors.Register(ModuleName, 5, "invalid owner")
 )
