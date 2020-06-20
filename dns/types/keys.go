@@ -16,9 +16,19 @@ const (
 
 var (
 	// Key for store prefixes
-	DomainKey = []byte{0x11}
+	DomainKey    = []byte{0x11}
+	PrecommitKey = []byte{0x12}
+	CommitKey    = []byte{0x13}
 )
 
 func GetDomainKey(domain string) []byte {
 	return append(DomainKey, []byte(domain)...)
+}
+
+func GetPrecommitKey(domain, name string) []byte {
+	return append(PrecommitKey, []byte(domain+name)...)
+}
+
+func GetCommitKey(domain, name string) []byte {
+	return append(CommitKey, []byte(domain+name)...)
 }
